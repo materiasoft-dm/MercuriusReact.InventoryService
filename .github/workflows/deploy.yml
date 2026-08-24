@@ -1,0 +1,44 @@
+name: Build and Push InventoryService
+
+# "on" declares what triggers this workflow. Here: any push to main.
+on:
+  push:
+    branches: [main]
+
+# A workflow is made of one or more "jobs". Each job runs on its own
+# fresh virtual machine, starting completely empty — no code, nothing
+# installed beyond the base OS image.
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest   # a fresh Linux VM, already has Docker on it
+
+    steps:
+      # "uses" runs someone else's pre-built, reusable step (an "Action")
+      # instead of writing raw shell commands. This one clones your repo's
+      # code onto the runner — without it, there'd be no Dockerfile to
+      # build from, since the VM starts empty.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Official Docker-maintained action for logging into a registry.
+      # ${{ secrets.X }} is GitHub's syntax for pulling a secret's value
+      # at runtime — it's never printed in the logs, even if a step fails.
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Combines build + push into one step. context: . means "build using
+      # the repo root as the build context" — same meaning as the `.` you
+      # passed to `docker build` by hand.
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # github.sha is a built-in variable: the exact commit hash that
+          # triggered this run. Tagging with it instead of "latest" means
+          # every image is traceable back to the exact code that built it —
+          # the immutable-tag practice from our CI/CD conversation earlier.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/inventoryservice:${{ github.sha }}
